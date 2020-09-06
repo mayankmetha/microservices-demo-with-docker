@@ -1,24 +1,35 @@
 # Microservices Demo with Docker
 
-This is a demo on the concept of microservices using docker. In this demo we make use of 3 docker containers. In these containers, only one is accessable by end user, while the rest of the containers will serve on a specific restAPI base path. The user will request for url `http://localhost:8080/`, and app0 container will serve the request. When the url changes to `http://localhost:8080/s1/`, app1 container will serve the request. Each container doing a specific service. In this case app-web mapping the url to the container services acting as web servers from user side, but is a nginx proxy service technically. Similarly, app0 and app1 being web services to user, but are web servers based on nodeJS running on different domains/servers technically. 
+In this demo, we will make use of 3 docker containers. One docker container (app-web) will be accessible by enduser. The other two containers will be running NodeJS REST web services. To reach these services we will be making use of path-based routing, i.e., if the user requests for URL `http://localhost:8080/`, then the app0 container will serve the request, but, if the user requests for `http://localhost:8080/s1/`, app1 container will serve the request. 
+
+The app-web container is a ngnix proxy that maps the URLs to the containers (app0 and app1). app0 and app1 are web servers running nodeJS and they may be running on different domains/servers. 
+
+To achieve this, we will make use of docker networking, specifically a bridge network. Bridge networks are used when your applications run in standalone containers that need to communicate. In terms of Docker, a bridge network uses a software bridge which allows containers connected to the same bridge network to communicate, while providing isolation from containers which are not connected to that bridge network. The Docker bridge driver automatically installs rules in the host machine so that containers on different bridge networks cannot communicate directly with each other (source: [1](https://docs.docker.com/network/bridge/)). User-defined bridges provide automatic DNS resolution between containers.
 
 ## List of containers 
 
 - app0 -> this is a microservice that will run at GET /
 - app1 -> this is a microservice that will run at GET /s1
-- app-web -> this will run a linking microservice that runs at localhost:8080
+- app-web -> this will be a ngnix proxy at localhost:8000
 
-## Start app0
+## Create a docker bridge network
 
-- `docker build --target app0 -t app0 .`
-- `docker run -d --name service0 app0`
+- `docker network create my-network`
 
-## Start app1
+## Build and start app0
 
-- `docker build --target app1 -t app1 .`
-- `docker run -d --name service1 app1`
+- `cd service0`
+- `docker build -t demo/app0 .`
+- `docker run -d --network my-network --name service0 demo/service0`
 
-## Start app-web
+## Build and start app1
 
-- `docker build --target proxy -t app-web .`
-- `docker run -d -p 8080:80 --link service0:service0 --link service1:service1 --name proxy app-web`
+- `cd service1`
+- `docker build -t demo/app1 .`
+- `docker run -d --network my-network --name service1 demo/service1`
+
+## Build and start app-web
+
+- `cd app-web`
+- `docker build -t demo/app-web .`
+- `docker run --network my-network -p 8000:80 demo/app-web`
